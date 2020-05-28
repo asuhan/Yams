@@ -127,11 +127,21 @@ private extension TimeInterval {
     func separateFractionalSecond(withPrecision precision: Int) -> (integral: TimeInterval, fractional: Int) {
         var integral = 0.0
         let fractional = modf(self, &integral)
-#if os(Linux)
-        let radix = Glibc.pow(10.0, Double(precision))
-#else
-        let radix = pow(10.0, Double(precision))
-#endif
+        // SWIFT_ENABLE_TENSORFLOW
+        // Original line below: `let radix = pow(10.0, Double(precision))`
+        //
+        // The `Double.pow` qualification is currently needed when building from apple/swift
+        // tensorflow branch to avoid a type-checker diagnostic:
+        // "error: static member 'pow' cannot be used on instance of type 'Double'".
+        //
+        // This error occurs only on tensorflow branch due to ad-hoc stdlib additions of the
+        // `ElementaryFunctions` protocol and conformances, including the static method
+        // `Double.pow`.
+        //
+        // TF-1203 tracks removing these ad-hoc stdlib additions and adding apple/swift-numerics
+        // as a legitimate dependency.
+        let radix = Double.pow(10.0, Double(precision))
+        // SWIFT_ENABLE_TENSORFLOW END
         let rounded = Int((fractional * radix).rounded())
         let quotient = rounded / Int(radix)
         return quotient != 0 ? // carry-up?
